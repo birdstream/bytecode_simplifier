@@ -12,7 +12,8 @@ class Decoder:
         self.insBytes = insBytes
 
     def decode_at(self, offset):
-        assert offset < len(self.insBytes)
+        if offset >= len(self.insBytes):
+            return Instruction(dis.opmap['NOP'], None, 1)
 
         opcode = self.insBytes[offset]
         extended_arg = 0
