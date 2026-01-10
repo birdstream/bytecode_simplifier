@@ -270,6 +270,8 @@ class Disassembler:
 
     def find_bb_by_address(self, address):
         for bb in list(self.bb_graph.nodes()):
+            if bb is None:
+                continue
             if bb.address == address:
                 return bb
 
@@ -313,6 +315,9 @@ class Disassembler:
                         ins.argval = targetBB
 
                         # Add edge
+                        if targetBB is None:
+                            logger.warning('Failed to resolve jump target at {}'.format(target))
+                            continue
                         self.bb_graph.add_edge(bb, targetBB, edge_type='explicit')
 
                         logger.debug(
@@ -333,8 +338,14 @@ class Disassembler:
                         ins.argval = target2BB
 
                         # Add the two edges
-                        self.bb_graph.add_edge(bb, target1BB, edge_type='implicit')
-                        self.bb_graph.add_edge(bb, target2BB, edge_type='explicit')
+                        if target1BB is None:
+                            logger.warning('Failed to resolve implicit jump target at {}'.format(target1))
+                        else:
+                            self.bb_graph.add_edge(bb, target1BB, edge_type='implicit')
+                        if target2BB is None:
+                            logger.warning('Failed to resolve explicit jump target at {}'.format(target2))
+                        else:
+                            self.bb_graph.add_edge(bb, target2BB, edge_type='explicit')
 
                         logger.debug(
                             'Adding implicit edge from block {} to {}'.format(hex(id(bb)), hex(id(target1BB))))
@@ -354,6 +365,9 @@ class Disassembler:
                         nextBB = self.find_bb_by_address(nextInsAddr['implicit'])
 
                         # Add edge
+                        if nextBB is None:
+                            logger.warning('Failed to resolve implicit fallthrough at {}'.format(nextInsAddr['implicit']))
+                            continue
                         self.bb_graph.add_edge(bb, nextBB, edge_type='implicit')
 
                 offset += ins.size
