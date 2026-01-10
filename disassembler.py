@@ -269,7 +269,7 @@ class Disassembler:
         logger.debug('{} basic blocks created'.format(self.bb_graph.number_of_nodes()))
 
     def find_bb_by_address(self, address):
-        for bb in self.bb_graph.nodes():
+        for bb in list(self.bb_graph.nodes()):
             if bb.address == address:
                 return bb
 
@@ -280,7 +280,7 @@ class Disassembler:
         """
         logger.debug('Constructing edges between basic blocks...')
 
-        for bb in self.bb_graph.nodes():
+        for bb in list(self.bb_graph.nodes()):
             offset = 0
 
             for idx in xrange(len(bb.instructions)):
