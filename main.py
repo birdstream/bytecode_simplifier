@@ -66,7 +66,6 @@ def unwrap_code_object(codeObject, max_depth=10):
 
 def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
-    py2_magic = b'\x03\xF3\x0D\x0A'
     with open(ifile, 'rb') as ifPtr:
         data = ifPtr.read()
     if len(data) < 4:
@@ -74,14 +73,9 @@ def process(ifile, ofile):
 
     magic = data[:4]
     header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
-    candidate_header_sizes = []
-
-    if magic == py2_magic:
-        candidate_header_sizes = [8]
-    else:
-        if magic != importlib.util.MAGIC_NUMBER:
-            logger.warning('PYC magic does not match current interpreter, attempting fallback header sizes.')
-        candidate_header_sizes = [header_size, 12, 8]
+    if magic != importlib.util.MAGIC_NUMBER:
+        logger.warning('PYC magic does not match current interpreter, attempting fallback header sizes.')
+    candidate_header_sizes = [header_size, 16, 12, 8]
 
     rootCodeObject = None
     header = None
