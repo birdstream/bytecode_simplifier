@@ -122,6 +122,10 @@ class Disassembler:
                     break
 
                 ins = dec.decode_at(addr)
+                if ins.size <= 0:
+                    logger.warning('Decoded instruction with non-positive size at {}'.format(addr))
+                    leader_set.add(Leader(addr, 'E'))
+                    break
 
                 # Put the current address into the already_analyzed set
                 already_analyzed.add(addr)
@@ -230,6 +234,9 @@ class Disassembler:
                     if addr1 + offset >= len(self.insBytes):
                         break
                     ins = dec.decode_at(addr1 + offset)
+                    if ins.size <= 0:
+                        logger.warning('Decoded instruction with non-positive size at {}'.format(addr1 + offset))
+                        break
                     bb.add_instruction(ins)
                     offset += ins.size
                 idx += 2
@@ -244,6 +251,9 @@ class Disassembler:
                     if addr1 + offset >= len(self.insBytes):
                         break
                     ins = dec.decode_at(addr1 + offset)
+                    if ins.size <= 0:
+                        logger.warning('Decoded instruction with non-positive size at {}'.format(addr1 + offset))
+                        break
                     bb.add_instruction(ins)
                     offset += ins.size
                 idx += 1
