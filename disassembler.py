@@ -290,10 +290,13 @@ class Disassembler:
                 xref = self.get_ins_xref(ins, bb.address + offset)
                 if xref is not None:
                     xref_bb = self.find_bb_by_address(xref)
-                    ins.argval = xref_bb
-                    xref_bb.has_xrefs_to = True
-                    xref_bb.xref_instructions.append(ins)
-                    logger.debug('Basic block {} has xreference'.format(hex(id(bb))))
+                    if xref_bb is not None:
+                        ins.argval = xref_bb
+                        xref_bb.has_xrefs_to = True
+                        xref_bb.xref_instructions.append(ins)
+                        logger.debug('Basic block {} has xreference'.format(hex(id(bb))))
+                    else:
+                        logger.warning('Failed to resolve xref at {}'.format(xref))
 
                 nextInsAddr = self.get_next_ins_addresses(ins, bb.address + offset)
 
