@@ -15,17 +15,35 @@ class Decoder:
         assert offset < len(self.insBytes)
 
         opcode = self.insBytes[offset]
+        extended_arg = 0
+        size = 0
 
-        if opcode == dis.opmap['EXTENDED_ARG']:
-            raise Exception('EXTENDED_ARG not yet implemented')
+        while opcode == dis.opmap['EXTENDED_ARG']:
+            if offset + 2 >= len(self.insBytes):
+                return Instruction(-1, None, size + 1)
+
+            ext_arg = (self.insBytes[offset + 2] << 8) | self.insBytes[offset + 1]
+            extended_arg = (extended_arg << 16) | ext_arg
+            offset += 3
+            size += 3
+
+            if offset >= len(self.insBytes):
+                return Instruction(-1, None, size)
+
+            opcode = self.insBytes[offset]
 
         # Invalid instruction
         if opcode not in dis.opmap.values():
-            return Instruction(-1, None, 1)
+            return Instruction(-1, None, size + 1)
 
         if opcode < dis.HAVE_ARGUMENT:
-            return Instruction(opcode, None, 1)
+            return Instruction(opcode, None, size + 1)
 
         if opcode >= dis.HAVE_ARGUMENT:
+            if offset + 2 >= len(self.insBytes):
+                return Instruction(-1, None, size + 1)
+
             arg = (self.insBytes[offset + 2] << 8) | self.insBytes[offset + 1]
-            return Instruction(opcode, arg, 3)
+            if extended_arg:
+                arg = (extended_arg << 16) | arg
+            return Instruction(opcode, arg, size + 3)
