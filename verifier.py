@@ -19,7 +19,8 @@ def verify_graph(bb_graph):
             raise Exception
 
         # The entrypoint must have a in degree of zero
-        i_degree_entry = bb_graph.in_degree(nx.get_node_attributes(bb_graph, 'isEntry').keys()[0])
+        entry_blocks = list(nx.get_node_attributes(bb_graph, 'isEntry'))
+        i_degree_entry = bb_graph.in_degree(entry_blocks[0])
 
         if i_degree_entry != 0:
             logger.error('The entry point basic block has an in degree of {}'.format(i_degree_entry))
@@ -41,7 +42,7 @@ def verify_graph(bb_graph):
 
             # A basic block having out degree of 2, cannot have both out edge as of explicit type or implicit type
             if o_degree == 2:
-                o_edges = bb_graph.out_edges(bb, data=True)
+                o_edges = list(bb_graph.out_edges(bb, data=True))
                 if o_edges[0][2]['edge_type'] == 'explicit' and o_edges[1][2]['edge_type'] == 'explicit':
                     logger.error('Basic block {} has both out edges of explicit type'.format(hex(id(bb))))
                     raise Exception
@@ -66,6 +67,6 @@ def verify_graph(bb_graph):
                 logger.error('Orphaned block {} has no edges'.format(hex(id(bb))))
 
     except Exception as ex:
-        print ex
+        print(ex)
         return False
     return True

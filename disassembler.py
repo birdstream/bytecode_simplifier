@@ -1,4 +1,4 @@
-import Queue
+import queue
 import logging
 import collections
 import dis
@@ -44,6 +44,9 @@ class Disassembler:
         elif ins.mnemonic == 'JUMP_ABSOLUTE':
             next_addresses['explicit'] = ins.arg
 
+        elif ins.mnemonic == 'JUMP':
+            next_addresses['explicit'] = ins.arg
+
         elif ins.mnemonic == 'POP_JUMP_IF_FALSE':
             next_addresses['implicit'] = addr + ins.size
             next_addresses['explicit'] = ins.arg
@@ -51,6 +54,22 @@ class Disassembler:
         elif ins.mnemonic == 'POP_JUMP_IF_TRUE':
             next_addresses['implicit'] = addr + ins.size
             next_addresses['explicit'] = ins.arg
+
+        elif ins.mnemonic == 'POP_JUMP_FORWARD_IF_FALSE':
+            next_addresses['implicit'] = addr + ins.size
+            next_addresses['explicit'] = addr + ins.size + ins.arg
+
+        elif ins.mnemonic == 'POP_JUMP_FORWARD_IF_TRUE':
+            next_addresses['implicit'] = addr + ins.size
+            next_addresses['explicit'] = addr + ins.size + ins.arg
+
+        elif ins.mnemonic == 'POP_JUMP_BACKWARD_IF_FALSE':
+            next_addresses['implicit'] = addr + ins.size
+            next_addresses['explicit'] = addr + ins.size - ins.arg
+
+        elif ins.mnemonic == 'POP_JUMP_BACKWARD_IF_TRUE':
+            next_addresses['implicit'] = addr + ins.size
+            next_addresses['explicit'] = addr + ins.size - ins.arg
 
         elif ins.mnemonic == 'CONTINUE_LOOP':
             next_addresses['explicit'] = ins.arg
@@ -61,6 +80,12 @@ class Disassembler:
 
         elif ins.mnemonic == 'JUMP_FORWARD':
             next_addresses['explicit'] = addr + ins.size + ins.arg
+
+        elif ins.mnemonic == 'JUMP_BACKWARD':
+            next_addresses['explicit'] = addr + ins.size - ins.arg
+
+        elif ins.mnemonic == 'JUMP_BACKWARD_NO_INTERRUPT':
+            next_addresses['explicit'] = addr + ins.size - ins.arg
 
         elif ins.mnemonic == 'RETURN_VALUE':
             pass
@@ -98,7 +123,7 @@ class Disassembler:
         logger.debug('Start leader at {}'.format(self.entrypoint))
 
         # Queue to contain list of addresses, from where linear sweep disassembling would start
-        analysis_Q = Queue.Queue()
+        analysis_Q = queue.Queue()
 
         # Start analysis from the entrypoint
         analysis_Q.put(self.entrypoint)
@@ -137,7 +162,7 @@ class Disassembler:
                     # The list of addresses where execution is expected to transfer are starting leaders
                     for target in self.get_next_ins_addresses(ins, addr).values():
                         leader_set.add(Leader(target, 'S'))
-                        logger.debug('Start leader at {}'.format(addr))
+                        logger.debug('Start leader at {}'.format(target))
 
                         # Put into analysis queue if not already analyzed
                         if target not in already_analyzed:
@@ -148,7 +173,7 @@ class Disassembler:
                 else:
                     # Get cross refs
                     xref = self.get_ins_xref(ins, addr)
-                    nextAddress = self.get_next_ins_addresses(ins, addr).values()
+                    nextAddress = list(self.get_next_ins_addresses(ins, addr).values())
 
                     # Non control flow instruction should only have a single possible next address
                     assert len(nextAddress) == 1
@@ -165,18 +190,8 @@ class Disassembler:
                         if xref not in already_analyzed:
                             analysis_Q.put(xref)
 
-        # Comparator function to sort the leaders according to increasing offsets
-        def __leaderSortFunc(elem1, elem2):
-            if elem1.address != elem2.address:
-                return elem1.address - elem2.address
-            else:
-                if elem1.type == 'S':
-                    return -1
-                else:
-                    return 1
-
         logger.debug('Found {} leaders'.format(len(leader_set)))
-        self.leaders = sorted(leader_set, cmp=__leaderSortFunc)
+        self.leaders = sorted(leader_set, key=lambda leader: (leader.address, 0 if leader.type == 'S' else 1))
 
     def construct_basic_blocks(self):
         """
@@ -211,8 +226,6 @@ class Disassembler:
                 self.bb_graph.add_node(bb)
 
             # Add the basic block to the graph
-            self.bb_graph.add_node(bb)
-
             # Leader1 is start leader, leader2 is end leader
             # All instructions inclusive of leader1 and leader2 are part of this basic block
             if leader1.type == 'S' and leader2.type == 'E':
@@ -255,7 +268,7 @@ class Disassembler:
         for bb in self.bb_graph.nodes():
             offset = 0
 
-            for idx in xrange(len(bb.instructions)):
+            for idx in range(len(bb.instructions)):
                 ins = bb.instructions[idx]
 
                 # If instruction has an xref, resolve it
@@ -276,7 +289,7 @@ class Disassembler:
                     # An un-conditional control flow instruction can have only a single successor instruction
                     # which is indicated by its argument.
                     if ins.is_unconditional():
-                        assert len(nextInsAddr) == 1 and nextInsAddr.has_key('explicit')
+                        assert len(nextInsAddr) == 1 and 'explicit' in nextInsAddr
                         target = nextInsAddr['explicit']
                         targetBB = self.find_bb_by_address(target)
                         ins.argval = targetBB
@@ -319,7 +332,7 @@ class Disassembler:
 
                     # The last instruction does not have an explicit control flow
                     else:
-                        assert len(nextInsAddr) == 1 and nextInsAddr.has_key('implicit')
+                        assert len(nextInsAddr) == 1 and 'implicit' in nextInsAddr
                         nextBB = self.find_bb_by_address(nextInsAddr['implicit'])
 
                         # Add edge

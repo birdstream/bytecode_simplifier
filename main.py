@@ -1,7 +1,8 @@
 import argparse
-
-import marshal
+import importlib._bootstrap_external as bootstrap_external
+import importlib.util
 import logging
+import marshal
 import types
 
 logging.basicConfig(level=logging.DEBUG)
@@ -10,57 +11,50 @@ logger = logging.getLogger(__name__)
 from deobfuscator import deobfuscate
 
 
+def format_code_name(name):
+    return name.encode('unicode_escape').decode('ascii')
+
+
 def parse_code_object(codeObject):
-    logger.info('Processing code object {}'.format(codeObject.co_name).encode('string_escape'))
-    co_argcount = codeObject.co_argcount
-    co_nlocals = codeObject.co_nlocals
-    co_stacksize = codeObject.co_stacksize
-    co_flags = codeObject.co_flags
-
+    logger.info('Processing code object %s', format_code_name(codeObject.co_name))
     co_codestring = deobfuscate(codeObject.co_code)
-    logger.info('Successfully deobfuscated code object {}'.format(codeObject.co_name).encode('string_escape'))
-    co_names = codeObject.co_names
+    logger.info('Successfully deobfuscated code object %s', format_code_name(codeObject.co_name))
 
-    co_varnames = codeObject.co_varnames
-    co_filename = codeObject.co_filename
-    co_name = codeObject.co_name
-    co_firstlineno = codeObject.co_firstlineno
-    co_lnotab = codeObject.co_lnotab
-
-    logger.info('Collecting constants for code object {}'.format(codeObject.co_name).encode('string_escape'))
+    logger.info('Collecting constants for code object %s', format_code_name(codeObject.co_name))
     mod_const = []
     for const in codeObject.co_consts:
         if isinstance(const, types.CodeType):
             logger.info(
-                'Code object {} contains embedded code object {}'.format(codeObject.co_name, const.co_name).encode(
-                    'string_escape'))
+                'Code object %s contains embedded code object %s',
+                format_code_name(codeObject.co_name),
+                format_code_name(const.co_name),
+            )
             mod_const.append(parse_code_object(const))
         else:
             mod_const.append(const)
     co_constants = tuple(mod_const)
 
-    logger.info('Generating new code object for {}'.format(codeObject.co_name).encode('string_escape'))
-    return types.CodeType(co_argcount, co_nlocals, co_stacksize, co_flags,
-                          co_codestring, co_constants, co_names, co_varnames,
-                          co_filename, co_name, co_firstlineno, co_lnotab)
+    logger.info('Generating new code object for %s', format_code_name(codeObject.co_name))
+    return codeObject.replace(co_code=co_codestring, co_consts=co_constants)
 
 
 def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
-    ifPtr = open(ifile, 'rb')
-    header = ifPtr.read(8)
-    if not header.startswith('\x03\xF3\x0D\x0A'):
-        raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
-    logger.info('Input pyc file header matched')
-    logger.debug('Unmarshalling file')
-    rootCodeObject = marshal.load(ifPtr)
-    ifPtr.close()
+    header_size = bootstrap_external.HEADER_SIZE
+    with open(ifile, 'rb') as ifPtr:
+        header = ifPtr.read(header_size)
+        if len(header) < header_size:
+            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
+        if header[:4] != importlib.util.MAGIC_NUMBER:
+            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
+        logger.info('Input pyc file header matched')
+        logger.debug('Unmarshalling file')
+        rootCodeObject = marshal.load(ifPtr)
     deob = parse_code_object(rootCodeObject)
     logger.info('Writing deobfuscated code object to disk')
-    ofPtr = open(ofile, 'wb')
-    ofPtr.write(header)
-    marshal.dump(deob, ofPtr)
-    ofPtr.close()
+    with open(ofile, 'wb') as ofPtr:
+        ofPtr.write(header)
+        marshal.dump(deob, ofPtr)
     logger.info('Success')
 
 
