@@ -63,6 +63,9 @@ class Assembler:
                     targetBlock = ins.argval
 
                     # Check if target block occurs before the current block
+                    if targetBlock not in self.bb_ordered:
+                        logger.warning('Skipping relative jump target not in layout: %r', targetBlock)
+                        continue
                     if self.bb_ordered.index(targetBlock) <= idx:
                         logger.info(
                             'Basic block {} uses a relative control transfer instruction to access block {} located before it.'.format(
