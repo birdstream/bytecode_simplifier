@@ -55,6 +55,9 @@ class Assembler:
         logger.debug('Verifying generated layout...')
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                logger.warning('Skipping missing basic block in layout at index %d', idx)
+                continue
             for ins in block.instruction_iter():
                 if ins.opcode in dis.hasjrel:
                     targetBlock = ins.argval
@@ -150,6 +153,8 @@ class Assembler:
         logger.debug('Calculating addresses of basic blocks.')
         size = 0
         for block in self.bb_ordered:
+            if block is None:
+                continue
             block.address = size
             size += block.size()
 
@@ -161,6 +166,8 @@ class Assembler:
         """
         logger.debug('Calculating instruction operands.')
         for block in self.bb_ordered:
+            if block is None:
+                continue
             addr = block.address
             for ins in block.instruction_iter():
                 addr += ins.size
@@ -181,6 +188,8 @@ class Assembler:
         logger.debug('Generating code...')
         codestring = cStringIO.StringIO()
         for block in self.bb_ordered:
+            if block is None:
+                continue
             for ins in block.instruction_iter():
                 codestring.write(ins.assemble())
         return codestring.getvalue()
@@ -193,6 +202,8 @@ class Assembler:
         """
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                continue
 
             # Fetch the last instruction
             ins = block.instructions[-1]
@@ -214,6 +225,8 @@ class Assembler:
 
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                continue
 
             # Fetch the ;ast instruction
             ins = block.instructions[-1]
