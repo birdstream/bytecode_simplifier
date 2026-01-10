@@ -257,6 +257,11 @@ class Disassembler:
                     bb.add_instruction(ins)
                     offset += ins.size
                 idx += 1
+            else:
+                logger.debug(
+                    'Skipping leader pair {}{} to {}{} while constructing basic blocks'.format(
+                        leader1.address, leader1.type, leader2.address, leader2.type))
+                idx += 1
 
         logger.debug('{} basic blocks created'.format(self.bb_graph.number_of_nodes()))
 
