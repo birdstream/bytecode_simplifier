@@ -20,7 +20,7 @@ class Decoder:
 
         while opcode == dis.opmap['EXTENDED_ARG']:
             if offset + 2 >= len(self.insBytes):
-                return Instruction(-1, None, size + 1)
+                return Instruction(opcode, 0, size + 3)
 
             ext_arg = (self.insBytes[offset + 2] << 8) | self.insBytes[offset + 1]
             extended_arg = (extended_arg << 16) | ext_arg
@@ -28,20 +28,16 @@ class Decoder:
             size += 3
 
             if offset >= len(self.insBytes):
-                return Instruction(-1, None, size)
+                return Instruction(dis.opmap['EXTENDED_ARG'], 0, size)
 
             opcode = self.insBytes[offset]
-
-        # Invalid instruction
-        if opcode not in dis.opmap.values():
-            return Instruction(-1, None, size + 1)
 
         if opcode < dis.HAVE_ARGUMENT:
             return Instruction(opcode, None, size + 1)
 
         if opcode >= dis.HAVE_ARGUMENT:
             if offset + 2 >= len(self.insBytes):
-                return Instruction(-1, None, size + 1)
+                return Instruction(opcode, 0, size + 3)
 
             arg = (self.insBytes[offset + 2] << 8) | self.insBytes[offset + 1]
             if extended_arg:
