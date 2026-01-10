@@ -115,6 +115,12 @@ class Disassembler:
             addr = analysis_Q.get()
 
             while True:
+                if addr >= len(self.insBytes):
+                    end_addr = addr - 1 if addr > 0 else 0
+                    leader_set.add(Leader(end_addr, 'E'))
+                    logger.debug('End leader at {}'.format(end_addr))
+                    break
+
                 ins = dec.decode_at(addr)
 
                 # Put the current address into the already_analyzed set
@@ -221,6 +227,8 @@ class Disassembler:
                                                                                             leader1.address,
                                                                                             leader2.address))
                 while addr1 + offset <= addr2:
+                    if addr1 + offset >= len(self.insBytes):
+                        break
                     ins = dec.decode_at(addr1 + offset)
                     bb.add_instruction(ins)
                     offset += ins.size
@@ -233,6 +241,8 @@ class Disassembler:
                     'Creating basic block {} spanning from {} to {}, end exclusive'.format(hex(id(bb)), leader1.address,
                                                                                            leader2.address))
                 while addr1 + offset < addr2:
+                    if addr1 + offset >= len(self.insBytes):
+                        break
                     ins = dec.decode_at(addr1 + offset)
                     bb.add_instruction(ins)
                     offset += ins.size
