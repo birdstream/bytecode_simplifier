@@ -28,7 +28,8 @@ class Assembler:
         2.
 
         """
-        entryblock = nx.get_node_attributes(self.bb_graph, 'isEntry').keys()[0]
+        entrypoints = list(nx.get_node_attributes(self.bb_graph, 'isEntry').keys())
+        entryblock = entrypoints[0]
         logger.debug('Performing a DFS on the graph to generate the layout of the blocks.')
         self.dfs(entryblock)
 
@@ -127,7 +128,10 @@ class Assembler:
         for ins in bb.instruction_iter():
             # Recursively dfs if instruction have xreferences
             if ins.has_xref():
-                self.dfs(ins.argval)
+                if isinstance(ins.argval, BasicBlock):
+                    self.dfs(ins.argval)
+                else:
+                    logger.warning('Skipping xref for instruction with non-basic-block target: %r', ins.argval)
 
         # Recursively dfs on all out going implicit edges
         for o_edge in self.bb_graph.out_edges(bb, data=True):
