@@ -176,12 +176,18 @@ class Assembler:
                 addr += ins.size
                 if ins.opcode in dis.hasjabs:
                     # ins.argval is a BasicBlock
+                    if not isinstance(ins.argval, BasicBlock):
+                        logger.warning('Skipping absolute jump with non-basic-block target: %r', ins.argval)
+                        continue
                     ins.arg = ins.argval.address
                     # TODO
                     # We do not generate EXTENDED_ARG opcode at the moment,
                     # hence size of opcode argument can only be 2 bytes
                     assert ins.arg <= 0xFFFF
                 elif ins.opcode in dis.hasjrel:
+                    if not isinstance(ins.argval, BasicBlock):
+                        logger.warning('Skipping relative jump with non-basic-block target: %r', ins.argval)
+                        continue
                     ins.arg = ins.argval.address - addr
                     # relative jump can USUALLY go forward
                     assert ins.arg >= 0
