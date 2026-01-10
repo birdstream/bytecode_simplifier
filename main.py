@@ -38,6 +38,32 @@ def parse_code_object(codeObject):
     return codeObject.replace(co_code=co_codestring, co_consts=co_constants)
 
 
+def find_embedded_code_object(codeObject):
+    for const in codeObject.co_consts:
+        if isinstance(const, types.CodeType):
+            return const
+        if isinstance(const, (bytes, bytearray)):
+            try:
+                candidate = marshal.loads(const)
+            except (ValueError, EOFError, TypeError):
+                continue
+            if isinstance(candidate, types.CodeType):
+                return candidate
+    return None
+
+
+def unwrap_code_object(codeObject, max_depth=10):
+    current = codeObject
+    for depth in range(1, max_depth + 1):
+        candidate = find_embedded_code_object(current)
+        if candidate is None:
+            return current
+        logger.info('Unwrapped wrapper layer %d: %s', depth, format_code_name(candidate.co_name))
+        current = candidate
+    logger.warning('Max wrapper unwrap depth (%d) reached.', max_depth)
+    return current
+
+
 def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
     py2_magic = b'\x03\xF3\x0D\x0A'
@@ -74,6 +100,7 @@ def process(ifile, ofile):
 
     logger.info('Input pyc file header matched')
     logger.debug('Unmarshalling file')
+    rootCodeObject = unwrap_code_object(rootCodeObject)
     deob = parse_code_object(rootCodeObject)
     logger.info('Writing deobfuscated code object to disk')
     with open(ofile, 'wb') as ofPtr:
