@@ -111,6 +111,8 @@ class Disassembler:
         # Create the decoder
         dec = Decoder(self.insBytes)
 
+        max_addr = len(self.insBytes) - 1
+
         while not analysis_Q.empty():
             addr = analysis_Q.get()
 
@@ -146,12 +148,13 @@ class Disassembler:
 
                     # The list of addresses where execution is expected to transfer are starting leaders
                     for target in self.get_next_ins_addresses(ins, addr).values():
-                        leader_set.add(Leader(target, 'S'))
-                        logger.debug('Start leader at {}'.format(addr))
+                        if 0 <= target <= max_addr:
+                            leader_set.add(Leader(target, 'S'))
+                            logger.debug('Start leader at {}'.format(addr))
 
-                        # Put into analysis queue if not already analyzed
-                        if target not in already_analyzed:
-                            analysis_Q.put(target)
+                            # Put into analysis queue if not already analyzed
+                            if target not in already_analyzed:
+                                analysis_Q.put(target)
                     break
 
                 # Current instruction is not control flow
@@ -167,7 +170,7 @@ class Disassembler:
                     addr = nextAddress[0]
 
                     # If the instruction has xrefs, they are start leaders
-                    if xref is not None:
+                    if xref is not None and 0 <= xref <= max_addr:
                         leader_set.add(Leader(xref, 'S'))
                         logger.debug('Start leader at {}'.format(xref))
 
@@ -198,7 +201,7 @@ class Disassembler:
         idx = 0
         dec = Decoder(self.insBytes)
 
-        while idx < len(self.leaders):
+        while idx + 1 < len(self.leaders):
             # Get a pair of leaders
             leader1, leader2 = self.leaders[idx], self.leaders[idx + 1]
 
