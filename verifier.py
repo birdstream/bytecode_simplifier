@@ -13,13 +13,14 @@ def verify_graph(bb_graph):
     """
     try:
         # There must exists exactly one entry point
-        numEntryPoint = len(nx.get_node_attributes(bb_graph, 'isEntry'))
+        entrypoints = list(nx.get_node_attributes(bb_graph, 'isEntry').keys())
+        numEntryPoint = len(entrypoints)
         if numEntryPoint != 1:
             logger.error('Basic block graph has {} entrypoint(s)'.format(numEntryPoint))
             raise Exception
 
         # The entrypoint must have a in degree of zero
-        i_degree_entry = bb_graph.in_degree(nx.get_node_attributes(bb_graph, 'isEntry').keys()[0])
+        i_degree_entry = bb_graph.in_degree(entrypoints[0])
 
         if i_degree_entry != 0:
             logger.error('The entry point basic block has an in degree of {}'.format(i_degree_entry))
@@ -34,6 +35,10 @@ def verify_graph(bb_graph):
 
             # A basic block having a out degree of 0 must have a RETURN_VALUE as the last instruction
             if o_degree == 0:
+                if not bb.instructions:
+                    logger.warning(
+                        'Basic block {} has an out degree of zero and no instructions'.format(hex(id(bb))))
+                    continue
                 if bb.instructions[-1].mnemonic != 'RETURN_VALUE':
                     logger.warning(
                         'Basic block {} has an out degree of zero, but does not end with RETURN_VALUE'.format(
@@ -43,6 +48,11 @@ def verify_graph(bb_graph):
             # A basic block having out degree of 2, cannot have both out edge as of explicit type or implicit type
             if o_degree == 2:
                 o_edges = list(bb_graph.out_edges(bb, data=True))
+                if len(o_edges) < 2:
+                    logger.warning(
+                        'Basic block {} has out degree 2 but only {} out edges available'.format(
+                            hex(id(bb)), len(o_edges)))
+                    continue
                 if o_edges[0][2]['edge_type'] == 'explicit' and o_edges[1][2]['edge_type'] == 'explicit':
                     logger.error('Basic block {} has both out edges of explicit type'.format(hex(id(bb))))
                     raise Exception
