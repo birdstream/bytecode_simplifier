@@ -41,7 +41,7 @@ def verify_graph(bb_graph):
 
             # A basic block having out degree of 2, cannot have both out edge as of explicit type or implicit type
             if o_degree == 2:
-                o_edges = bb_graph.out_edges(bb, data=True)
+                o_edges = list(bb_graph.out_edges(bb, data=True))
                 if o_edges[0][2]['edge_type'] == 'explicit' and o_edges[1][2]['edge_type'] == 'explicit':
                     logger.error('Basic block {} has both out edges of explicit type'.format(hex(id(bb))))
                     raise Exception
