@@ -31,8 +31,8 @@ def render_graph(bb_graph, filename):
     :type bb_graph: networkx.DiGraph
     """
     graph = pydotplus.Dot(graph_type='digraph', rankdir='TB')
-    entryblock = nx.get_node_attributes(bb_graph, 'isEntry').keys()[0]
-    returnblocks = nx.get_node_attributes(bb_graph, 'isTerminal').keys()
+    entryblock = next(iter(nx.get_node_attributes(bb_graph, 'isEntry')))
+    returnblocks = set(nx.get_node_attributes(bb_graph, 'isTerminal'))
 
     nodedict = {}
 

@@ -32,4 +32,6 @@ class BasicBlock:
         Calculates the size of the basic block
         :return:
         """
+        from functools import reduce
+
         return reduce(lambda x, ins: x + ins.size, self.instructions, 0)

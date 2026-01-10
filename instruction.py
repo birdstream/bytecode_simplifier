@@ -45,7 +45,9 @@ class Instruction:
         # All control flow instructions
         cfIns = (
             'JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP', 'JUMP_ABSOLUTE', 'POP_JUMP_IF_FALSE', 'POP_JUMP_IF_TRUE',
-            'CONTINUE_LOOP', 'FOR_ITER', 'JUMP_FORWARD')
+            'CONTINUE_LOOP', 'FOR_ITER', 'JUMP_FORWARD', 'JUMP_BACKWARD', 'JUMP_BACKWARD_NO_INTERRUPT', 'JUMP',
+            'POP_JUMP_FORWARD_IF_FALSE', 'POP_JUMP_FORWARD_IF_TRUE', 'POP_JUMP_BACKWARD_IF_FALSE',
+            'POP_JUMP_BACKWARD_IF_TRUE')
         return self.mnemonic in cfIns
 
     def is_conditional(self):
@@ -54,7 +56,9 @@ class Instruction:
         A conditional control flow instruction has two possible successor instructions.
         """
         conditionalIns = (
-            'JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP', 'POP_JUMP_IF_FALSE', 'POP_JUMP_IF_TRUE', 'FOR_ITER')
+            'JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP', 'POP_JUMP_IF_FALSE', 'POP_JUMP_IF_TRUE', 'FOR_ITER',
+            'POP_JUMP_FORWARD_IF_FALSE', 'POP_JUMP_FORWARD_IF_TRUE', 'POP_JUMP_BACKWARD_IF_FALSE',
+            'POP_JUMP_BACKWARD_IF_TRUE')
         return self.is_control_flow() and self.mnemonic in conditionalIns
 
     def is_unconditional(self):
@@ -62,7 +66,8 @@ class Instruction:
         Checks whether the instruction is a conditional control flow instruction.
         A conditional control flow instruction has two possible successor instructions.
         """
-        unconditionalIns = ('JUMP_ABSOLUTE', 'JUMP_FORWARD', 'CONTINUE_LOOP')
+        unconditionalIns = (
+            'JUMP_ABSOLUTE', 'JUMP_FORWARD', 'CONTINUE_LOOP', 'JUMP_BACKWARD', 'JUMP_BACKWARD_NO_INTERRUPT', 'JUMP')
         return self.is_control_flow() and self.mnemonic in unconditionalIns
 
     def has_xref(self):
@@ -72,10 +77,9 @@ class Instruction:
         return self.mnemonic in ('SETUP_LOOP', 'SETUP_EXCEPT', 'SETUP_FINALLY', 'SETUP_WITH')
 
     def assemble(self):
-        if self.size == 1:
-            return chr(self.opcode)
-        else:
-            return chr(self.opcode) + chr(self.arg & 0xFF) + chr((self.arg >> 8) & 0xFF)
+        if self.size == 1 or self.arg is None:
+            return bytes([self.opcode])
+        return bytes([self.opcode, self.arg & 0xFF, (self.arg >> 8) & 0xFF])
 
     def __str__(self):
         return '{} {} {}'.format(self.opcode, self.mnemonic, self.arg)

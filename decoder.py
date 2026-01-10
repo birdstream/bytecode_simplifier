@@ -16,9 +16,6 @@ class Decoder:
 
         opcode = self.insBytes[offset]
 
-        if opcode == dis.opmap['EXTENDED_ARG']:
-            raise Exception('EXTENDED_ARG not yet implemented')
-
         # Invalid instruction
         if opcode not in dis.opmap.values():
             return Instruction(-1, None, 1)
@@ -27,5 +24,7 @@ class Decoder:
             return Instruction(opcode, None, 1)
 
         if opcode >= dis.HAVE_ARGUMENT:
+            if opcode == dis.opmap.get('EXTENDED_ARG'):
+                raise Exception('EXTENDED_ARG not yet implemented')
             arg = (self.insBytes[offset + 2] << 8) | self.insBytes[offset + 1]
             return Instruction(opcode, arg, 3)

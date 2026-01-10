@@ -1,6 +1,6 @@
 import logging
 
-import cStringIO
+import io
 import networkx as nx
 import dis
 
@@ -28,7 +28,7 @@ class Assembler:
         2.
 
         """
-        entryblock = nx.get_node_attributes(self.bb_graph, 'isEntry').keys()[0]
+        entryblock = next(iter(nx.get_node_attributes(self.bb_graph, 'isEntry')))
         logger.debug('Performing a DFS on the graph to generate the layout of the blocks.')
         self.dfs(entryblock)
 
@@ -52,7 +52,7 @@ class Assembler:
         # block A in the generated layout and relative instructions can be always used to point
         # to blocks located after it, i.e. have a higher address.
         logger.debug('Verifying generated layout...')
-        for idx in xrange(len(self.bb_ordered)):
+        for idx in range(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
             for ins in block.instruction_iter():
                 if ins.opcode in dis.hasjrel:
@@ -175,7 +175,7 @@ class Assembler:
 
     def emit(self):
         logger.debug('Generating code...')
-        codestring = cStringIO.StringIO()
+        codestring = io.BytesIO()
         for block in self.bb_ordered:
             for ins in block.instruction_iter():
                 codestring.write(ins.assemble())
@@ -187,7 +187,7 @@ class Assembler:
         if block B is located after block A.
         This conversion is not really required, but some decompilers like uncompyle fails without it.
         """
-        for idx in xrange(len(self.bb_ordered)):
+        for idx in range(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
 
             # Fetch the last instruction
@@ -208,7 +208,7 @@ class Assembler:
         logger.warning('Removing redundant jump instruction. This feature is EXPERIMENTAL.')
         numRemoved = 0
 
-        for idx in xrange(len(self.bb_ordered)):
+        for idx in range(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
 
             # Fetch the ;ast instruction

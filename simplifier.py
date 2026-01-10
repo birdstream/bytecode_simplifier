@@ -39,12 +39,16 @@ class Simplifier:
                         forwardedBB = list(self.bb_graph.successors(bb))[0]
 
                         # Check if forwardedBB has atleast one implicit in edge
-                        forwardedBB_in_edge_exists = len(filter(lambda edge: edge[2]['edge_type'] == 'implicit',
-                                                                self.bb_graph.in_edges(forwardedBB, data=True))) > 0
+                        forwardedBB_in_edge_exists = any(
+                            edge[2]['edge_type'] == 'implicit'
+                            for edge in self.bb_graph.in_edges(forwardedBB, data=True)
+                        )
 
                         # Check if forwarderBB has atleast one implicit in edge
-                        forwarderBB_in_edge_exists = len(filter(lambda edge: edge[2]['edge_type'] == 'implicit',
-                                                                self.bb_graph.in_edges(forwarderBB, data=True))) > 0
+                        forwarderBB_in_edge_exists = any(
+                            edge[2]['edge_type'] == 'implicit'
+                            for edge in self.bb_graph.in_edges(forwarderBB, data=True)
+                        )
 
                         # Cannot delete block
                         if forwardedBB_in_edge_exists and forwarderBB_in_edge_exists:
@@ -119,7 +123,7 @@ class Simplifier:
                     predecessorBB = list(self.bb_graph.predecessors(bb))[0]
 
                     # Predecessor basic block must have exactly one successor
-                    if self.bb_graph.out_degree(predecessorBB) == 1 and list(self.bb_graph.predecessors(bb))[0] == bb:
+                    if self.bb_graph.out_degree(predecessorBB) == 1 and list(self.bb_graph.successors(predecessorBB))[0] == bb:
                         # The predecessor block will be the merged block
                         mergedBB = predecessorBB
 
