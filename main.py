@@ -40,12 +40,19 @@ def parse_code_object(codeObject):
 
 def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
-    header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
+    py2_magic = b'\x03\xF3\x0D\x0A'
     with open(ifile, 'rb') as ifPtr:
-        header = ifPtr.read(header_size)
-        if len(header) < header_size:
+        magic = ifPtr.read(4)
+        if len(magic) < 4:
             raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
-        if header[:4] != importlib.util.MAGIC_NUMBER:
+        if magic == py2_magic:
+            header_size = 8
+        elif magic == importlib.util.MAGIC_NUMBER:
+            header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
+        else:
+            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
+        header = magic + ifPtr.read(header_size - 4)
+        if len(header) < header_size:
             raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
         logger.info('Input pyc file header matched')
         logger.debug('Unmarshalling file')
