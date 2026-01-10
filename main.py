@@ -89,6 +89,19 @@ def process(ifile, ofile):
         header = data[:size]
         break
 
+    if rootCodeObject is None:
+        max_scan = min(64, len(data))
+        for offset in range(0, max_scan):
+            try:
+                candidate = marshal.loads(data[offset:])
+            except (ValueError, EOFError, TypeError):
+                continue
+            if isinstance(candidate, types.CodeType):
+                rootCodeObject = candidate
+                header = data[:offset]
+                logger.warning('Recovered code object by scanning offset %d.', offset)
+                break
+
     if rootCodeObject is None or header is None:
         raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
 
