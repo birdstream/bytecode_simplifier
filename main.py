@@ -40,7 +40,7 @@ def parse_code_object(codeObject):
 
 def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
-    header_size = bootstrap_external.HEADER_SIZE
+    header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
     with open(ifile, 'rb') as ifPtr:
         header = ifPtr.read(header_size)
         if len(header) < header_size:
