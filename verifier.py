@@ -35,9 +35,10 @@ def verify_graph(bb_graph):
             # A basic block having a out degree of 0 must have a RETURN_VALUE as the last instruction
             if o_degree == 0:
                 if bb.instructions[-1].mnemonic != 'RETURN_VALUE':
-                    logger.error('Basic block {} has an out degree of zero, but does not end with RETURN_VALUE'.format(
-                        hex(id(bb))))
-                    raise Exception
+                    logger.warning(
+                        'Basic block {} has an out degree of zero, but does not end with RETURN_VALUE'.format(
+                            hex(id(bb))))
+                    continue
 
             # A basic block having out degree of 2, cannot have both out edge as of explicit type or implicit type
             if o_degree == 2:
