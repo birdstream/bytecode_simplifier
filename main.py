@@ -42,21 +42,38 @@ def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
     py2_magic = b'\x03\xF3\x0D\x0A'
     with open(ifile, 'rb') as ifPtr:
-        magic = ifPtr.read(4)
-        if len(magic) < 4:
-            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
-        if magic == py2_magic:
-            header_size = 8
-        elif magic == importlib.util.MAGIC_NUMBER:
-            header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
-        else:
-            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
-        header = magic + ifPtr.read(header_size - 4)
-        if len(header) < header_size:
-            raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
-        logger.info('Input pyc file header matched')
-        logger.debug('Unmarshalling file')
-        rootCodeObject = marshal.load(ifPtr)
+        data = ifPtr.read()
+    if len(data) < 4:
+        raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
+
+    magic = data[:4]
+    header_size = getattr(bootstrap_external, 'HEADER_SIZE', 16)
+    candidate_header_sizes = []
+
+    if magic == py2_magic:
+        candidate_header_sizes = [8]
+    else:
+        if magic != importlib.util.MAGIC_NUMBER:
+            logger.warning('PYC magic does not match current interpreter, attempting fallback header sizes.')
+        candidate_header_sizes = [header_size, 12, 8]
+
+    rootCodeObject = None
+    header = None
+    for size in candidate_header_sizes:
+        if size > len(data):
+            continue
+        try:
+            rootCodeObject = marshal.loads(data[size:])
+        except (ValueError, EOFError, TypeError):
+            continue
+        header = data[:size]
+        break
+
+    if rootCodeObject is None or header is None:
+        raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
+
+    logger.info('Input pyc file header matched')
+    logger.debug('Unmarshalling file')
     deob = parse_code_object(rootCodeObject)
     logger.info('Writing deobfuscated code object to disk')
     with open(ofile, 'wb') as ofPtr:
