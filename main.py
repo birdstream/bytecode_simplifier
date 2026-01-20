@@ -3,6 +3,7 @@ import argparse
 import marshal
 import logging
 import types
+import imp
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -49,7 +50,8 @@ def process(ifile, ofile):
     logger.info('Opening file ' + ifile)
     ifPtr = open(ifile, 'rb')
     header = ifPtr.read(8)
-    if not header.startswith('\x03\xF3\x0D\x0A'):
+    magic = imp.get_magic()
+    if not header.startswith(magic):
         raise SystemExit('[!] Header mismatch. The input file is not a valid pyc file.')
     logger.info('Input pyc file header matched')
     logger.debug('Unmarshalling file')
@@ -58,7 +60,7 @@ def process(ifile, ofile):
     deob = parse_code_object(rootCodeObject)
     logger.info('Writing deobfuscated code object to disk')
     ofPtr = open(ofile, 'wb')
-    ofPtr.write(header)
+    ofPtr.write(magic + header[4:8])
     marshal.dump(deob, ofPtr)
     ofPtr.close()
     logger.info('Success')

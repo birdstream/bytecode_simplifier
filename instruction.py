@@ -75,7 +75,8 @@ class Instruction:
         if self.size == 1:
             return chr(self.opcode)
         else:
-            return chr(self.opcode) + chr(self.arg & 0xFF) + chr((self.arg >> 8) & 0xFF)
+            arg = self.arg if self.arg is not None else 0
+            return chr(self.opcode) + chr(arg & 0xFF) + chr((arg >> 8) & 0xFF)
 
     def __str__(self):
         return '{} {} {}'.format(self.opcode, self.mnemonic, self.arg)

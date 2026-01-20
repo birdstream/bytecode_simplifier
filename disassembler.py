@@ -111,11 +111,23 @@ class Disassembler:
         # Create the decoder
         dec = Decoder(self.insBytes)
 
+        max_addr = len(self.insBytes) - 1
+
         while not analysis_Q.empty():
             addr = analysis_Q.get()
 
             while True:
+                if addr >= len(self.insBytes):
+                    end_addr = addr - 1 if addr > 0 else 0
+                    leader_set.add(Leader(end_addr, 'E'))
+                    logger.debug('End leader at {}'.format(end_addr))
+                    break
+
                 ins = dec.decode_at(addr)
+                if ins.size <= 0:
+                    logger.warning('Decoded instruction with non-positive size at {}'.format(addr))
+                    leader_set.add(Leader(addr, 'E'))
+                    break
 
                 # Put the current address into the already_analyzed set
                 already_analyzed.add(addr)
@@ -136,12 +148,13 @@ class Disassembler:
 
                     # The list of addresses where execution is expected to transfer are starting leaders
                     for target in self.get_next_ins_addresses(ins, addr).values():
-                        leader_set.add(Leader(target, 'S'))
-                        logger.debug('Start leader at {}'.format(addr))
+                        if 0 <= target <= max_addr:
+                            leader_set.add(Leader(target, 'S'))
+                            logger.debug('Start leader at {}'.format(addr))
 
-                        # Put into analysis queue if not already analyzed
-                        if target not in already_analyzed:
-                            analysis_Q.put(target)
+                            # Put into analysis queue if not already analyzed
+                            if target not in already_analyzed:
+                                analysis_Q.put(target)
                     break
 
                 # Current instruction is not control flow
@@ -157,7 +170,7 @@ class Disassembler:
                     addr = nextAddress[0]
 
                     # If the instruction has xrefs, they are start leaders
-                    if xref is not None:
+                    if xref is not None and 0 <= xref <= max_addr:
                         leader_set.add(Leader(xref, 'S'))
                         logger.debug('Start leader at {}'.format(xref))
 
@@ -188,7 +201,7 @@ class Disassembler:
         idx = 0
         dec = Decoder(self.insBytes)
 
-        while idx < len(self.leaders):
+        while idx + 1 < len(self.leaders):
             # Get a pair of leaders
             leader1, leader2 = self.leaders[idx], self.leaders[idx + 1]
 
@@ -221,7 +234,12 @@ class Disassembler:
                                                                                             leader1.address,
                                                                                             leader2.address))
                 while addr1 + offset <= addr2:
+                    if addr1 + offset >= len(self.insBytes):
+                        break
                     ins = dec.decode_at(addr1 + offset)
+                    if ins.size <= 0:
+                        logger.warning('Decoded instruction with non-positive size at {}'.format(addr1 + offset))
+                        break
                     bb.add_instruction(ins)
                     offset += ins.size
                 idx += 2
@@ -233,15 +251,27 @@ class Disassembler:
                     'Creating basic block {} spanning from {} to {}, end exclusive'.format(hex(id(bb)), leader1.address,
                                                                                            leader2.address))
                 while addr1 + offset < addr2:
+                    if addr1 + offset >= len(self.insBytes):
+                        break
                     ins = dec.decode_at(addr1 + offset)
+                    if ins.size <= 0:
+                        logger.warning('Decoded instruction with non-positive size at {}'.format(addr1 + offset))
+                        break
                     bb.add_instruction(ins)
                     offset += ins.size
+                idx += 1
+            else:
+                logger.debug(
+                    'Skipping leader pair {}{} to {}{} while constructing basic blocks'.format(
+                        leader1.address, leader1.type, leader2.address, leader2.type))
                 idx += 1
 
         logger.debug('{} basic blocks created'.format(self.bb_graph.number_of_nodes()))
 
     def find_bb_by_address(self, address):
-        for bb in self.bb_graph.nodes():
+        for bb in list(self.bb_graph.nodes()):
+            if bb is None:
+                continue
             if bb.address == address:
                 return bb
 
@@ -252,7 +282,7 @@ class Disassembler:
         """
         logger.debug('Constructing edges between basic blocks...')
 
-        for bb in self.bb_graph.nodes():
+        for bb in list(self.bb_graph.nodes()):
             offset = 0
 
             for idx in xrange(len(bb.instructions)):
@@ -262,10 +292,13 @@ class Disassembler:
                 xref = self.get_ins_xref(ins, bb.address + offset)
                 if xref is not None:
                     xref_bb = self.find_bb_by_address(xref)
-                    ins.argval = xref_bb
-                    xref_bb.has_xrefs_to = True
-                    xref_bb.xref_instructions.append(ins)
-                    logger.debug('Basic block {} has xreference'.format(hex(id(bb))))
+                    if xref_bb is not None:
+                        ins.argval = xref_bb
+                        xref_bb.has_xrefs_to = True
+                        xref_bb.xref_instructions.append(ins)
+                        logger.debug('Basic block {} has xreference'.format(hex(id(bb))))
+                    else:
+                        logger.warning('Failed to resolve xref at {}'.format(xref))
 
                 nextInsAddr = self.get_next_ins_addresses(ins, bb.address + offset)
 
@@ -282,6 +315,9 @@ class Disassembler:
                         ins.argval = targetBB
 
                         # Add edge
+                        if targetBB is None:
+                            logger.warning('Failed to resolve jump target at {}'.format(target))
+                            continue
                         self.bb_graph.add_edge(bb, targetBB, edge_type='explicit')
 
                         logger.debug(
@@ -302,8 +338,14 @@ class Disassembler:
                         ins.argval = target2BB
 
                         # Add the two edges
-                        self.bb_graph.add_edge(bb, target1BB, edge_type='implicit')
-                        self.bb_graph.add_edge(bb, target2BB, edge_type='explicit')
+                        if target1BB is None:
+                            logger.warning('Failed to resolve implicit jump target at {}'.format(target1))
+                        else:
+                            self.bb_graph.add_edge(bb, target1BB, edge_type='implicit')
+                        if target2BB is None:
+                            logger.warning('Failed to resolve explicit jump target at {}'.format(target2))
+                        else:
+                            self.bb_graph.add_edge(bb, target2BB, edge_type='explicit')
 
                         logger.debug(
                             'Adding implicit edge from block {} to {}'.format(hex(id(bb)), hex(id(target1BB))))
@@ -323,6 +365,9 @@ class Disassembler:
                         nextBB = self.find_bb_by_address(nextInsAddr['implicit'])
 
                         # Add edge
+                        if nextBB is None:
+                            logger.warning('Failed to resolve implicit fallthrough at {}'.format(nextInsAddr['implicit']))
+                            continue
                         self.bb_graph.add_edge(bb, nextBB, edge_type='implicit')
 
                 offset += ins.size

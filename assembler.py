@@ -28,7 +28,8 @@ class Assembler:
         2.
 
         """
-        entryblock = nx.get_node_attributes(self.bb_graph, 'isEntry').keys()[0]
+        entrypoints = list(nx.get_node_attributes(self.bb_graph, 'isEntry').keys())
+        entryblock = entrypoints[0]
         logger.debug('Performing a DFS on the graph to generate the layout of the blocks.')
         self.dfs(entryblock)
 
@@ -54,11 +55,17 @@ class Assembler:
         logger.debug('Verifying generated layout...')
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                logger.warning('Skipping missing basic block in layout at index %d', idx)
+                continue
             for ins in block.instruction_iter():
                 if ins.opcode in dis.hasjrel:
                     targetBlock = ins.argval
 
                     # Check if target block occurs before the current block
+                    if targetBlock not in self.bb_ordered:
+                        logger.warning('Skipping relative jump target not in layout: %r', targetBlock)
+                        continue
                     if self.bb_ordered.index(targetBlock) <= idx:
                         logger.info(
                             'Basic block {} uses a relative control transfer instruction to access block {} located before it.'.format(
@@ -127,7 +134,10 @@ class Assembler:
         for ins in bb.instruction_iter():
             # Recursively dfs if instruction have xreferences
             if ins.has_xref():
-                self.dfs(ins.argval)
+                if isinstance(ins.argval, BasicBlock):
+                    self.dfs(ins.argval)
+                else:
+                    logger.warning('Skipping xref for instruction with non-basic-block target: %r', ins.argval)
 
         # Recursively dfs on all out going implicit edges
         for o_edge in self.bb_graph.out_edges(bb, data=True):
@@ -146,6 +156,8 @@ class Assembler:
         logger.debug('Calculating addresses of basic blocks.')
         size = 0
         for block in self.bb_ordered:
+            if block is None:
+                continue
             block.address = size
             size += block.size()
 
@@ -157,17 +169,25 @@ class Assembler:
         """
         logger.debug('Calculating instruction operands.')
         for block in self.bb_ordered:
+            if block is None:
+                continue
             addr = block.address
             for ins in block.instruction_iter():
                 addr += ins.size
                 if ins.opcode in dis.hasjabs:
                     # ins.argval is a BasicBlock
+                    if not isinstance(ins.argval, BasicBlock):
+                        logger.warning('Skipping absolute jump with non-basic-block target: %r', ins.argval)
+                        continue
                     ins.arg = ins.argval.address
                     # TODO
                     # We do not generate EXTENDED_ARG opcode at the moment,
                     # hence size of opcode argument can only be 2 bytes
                     assert ins.arg <= 0xFFFF
                 elif ins.opcode in dis.hasjrel:
+                    if not isinstance(ins.argval, BasicBlock):
+                        logger.warning('Skipping relative jump with non-basic-block target: %r', ins.argval)
+                        continue
                     ins.arg = ins.argval.address - addr
                     # relative jump can USUALLY go forward
                     assert ins.arg >= 0
@@ -177,6 +197,8 @@ class Assembler:
         logger.debug('Generating code...')
         codestring = cStringIO.StringIO()
         for block in self.bb_ordered:
+            if block is None:
+                continue
             for ins in block.instruction_iter():
                 codestring.write(ins.assemble())
         return codestring.getvalue()
@@ -189,6 +211,8 @@ class Assembler:
         """
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                continue
 
             # Fetch the last instruction
             ins = block.instructions[-1]
@@ -210,6 +234,8 @@ class Assembler:
 
         for idx in xrange(len(self.bb_ordered)):
             block = self.bb_ordered[idx]
+            if block is None:
+                continue
 
             # Fetch the ;ast instruction
             ins = block.instructions[-1]

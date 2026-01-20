@@ -33,7 +33,9 @@ class Simplifier:
                     ins = bb.instructions[0]
                     if ins.mnemonic == 'JUMP_ABSOLUTE' or ins.mnemonic == 'JUMP_FORWARD':
                         # Must have a single successor
-                        assert self.bb_graph.out_degree(bb) == 1
+                        if self.bb_graph.out_degree(bb) != 1:
+                            logger.warning('Skipping forwarder with {} successors'.format(self.bb_graph.out_degree(bb)))
+                            continue
 
                         forwarderBB = bb
                         forwardedBB = list(self.bb_graph.successors(bb))[0]
